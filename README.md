@@ -1,6 +1,6 @@
-# Work broker
+# Simple Web sockets
 
-> Work broker repo
+> A simple web sockets example
 
 ---
 

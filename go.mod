@@ -1,4 +1,4 @@
-module work_broker
+module simple_ws
 
 go 1.19
 
