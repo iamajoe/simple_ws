@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<body>
+  <textarea class="messagearea" id="chatmessages" readonly disabled name="chatmessages" rows="4"
+    style="width: 100%"></textarea>
+  <form id="chatroom-message">
+    <label for="message">Message:</label>
+    <input type="text" id="message" name="message" style="width: 100%" />
+    <input type="submit" value="Send message" />
+  </form>
+
+  <script type="text/javascript">
+    const msgEl = document.getElementById("message");
+    const chatEl = document.getElementById("chatmessages");
+    let conn;
+
+    function connectSocket() {
+      if (window["WebSocket"] == null || conn != null) {
+        return;
+      }
+
+      const wsConn = new WebSocket(`ws://${document.location.host}/ws`);
+      wsConn.addEventListener("open", (event) => {
+        conn = wsConn;
+        conn.send(
+          JSON.stringify({
+            kind: "auth:validate",
+            data: {
+              t: "example of token",
+            },
+          })
+        );
+      });
+
+      wsConn.addEventListener("message", (event) => {
+        const {kind, data} = JSON.parse(event.data);
+        if (kind === "chat:receive_msg") {
+          chatEl.value = data.message;
+        }
+      });
+
+      wsConn.addEventListener("close", (event) => {
+        conn = null;
+
+        // reconnect to the socket after a bit
+        setTimeout(() => {
+          connectSocket();
+        }, 5000);
+      });
+    }
+
+    function sendMessage(evt) {
+      evt.preventDefault();
+
+      if (msgEl == null || conn == null) {
+        return;
+      }
+
+      conn.send(
+        JSON.stringify({
+          kind: "chat:send_msg",
+          data: {
+            message: msgEl.value,
+          },
+        })
+      );
+
+      msgEl.value = "";
+    }
+
+    window.onload = function () {
+      document.getElementById("chatroom-message").onsubmit = sendMessage;
+      connectSocket();
+    };
+  </script>
+</body>
+
+</html>
