@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -121,8 +122,9 @@ func NewWsClient(conn *websocket.Conn) *wsClient {
 }
 
 type wsManager struct {
-	modules wsModules
-	clients map[string]*wsClient
+	modules      wsModules
+	clients      map[string]*wsClient
+	clientsMutex sync.Mutex
 }
 
 func (m *wsManager) serveWS(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +138,7 @@ func (m *wsManager) serveWS(w http.ResponseWriter, r *http.Request) {
 	client := NewWsClient(conn)
 	go client.readMessages(m, m.modules)
 
+	m.clientsMutex.Lock()
 	select {
 	case id := <-client.authDone:
 		m.clients[id] = client
@@ -146,20 +149,33 @@ func (m *wsManager) serveWS(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		break
 	}
+	m.clientsMutex.Unlock()
 }
 
 func (m *wsManager) sendMessageToUsers(msg wsMsg, ids []string) error {
+	wg := sync.WaitGroup{}
+	wg.Add(len(ids))
+
+	m.clientsMutex.Lock()
+
 	for _, id := range ids {
 		if client, ok := m.clients[id]; ok {
 			go func() {
+				// TODO: as an exercise, transform this so that client has a sendingChannel
+				//       buffered by 1 and keeps waiting for data to be sent
 				err := client.send(msg)
 				if err != nil {
 					// TODO: handle the error
 					log.Println(err)
 				}
+
+				wg.Done()
 			}()
 		}
 	}
+
+	wg.Wait()
+	m.clientsMutex.Unlock()
 
 	return nil
 }

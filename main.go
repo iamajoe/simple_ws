@@ -30,7 +30,7 @@ func handleChatSendMessage(manager *wsManager, c *wsClient, msg map[string]inter
 		return errors.New("message missing")
 	}
 
-	manager.sendMessageToUsers(wsMsg{
+	go manager.sendMessageToUsers(wsMsg{
 		Kind: "chat:receive_msg",
 		Data: map[string]interface{}{
 			"message": m.(string),
